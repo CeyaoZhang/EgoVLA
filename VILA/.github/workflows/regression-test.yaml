@@ -1,0 +1,141 @@
+name: Regression Test
+on:
+  pull_request:
+
+# run only one unit test for a branch / tag.
+concurrency:
+  group: regression-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # first read on regression tests under `scripts/regression` folder
+  # each folder shall have struct as follows:
+  #   scripts/regression/qwen2-1.5b-instruct/
+  #   ├── align.sh
+  #   ├── pretrain.sh
+  #   └── sft.sh
+  collect_regression_models:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'regression-test wanted')
+    outputs:
+      dirs: ${{ steps.dirs.outputs.dirs }}
+
+    steps:
+    - name: Check out Git repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.PAT }}
+        ref: ${{ github.event.pull_request.head.ref }}
+
+    - name: Set regression model as output
+      id: dirs
+      run: |
+        echo "dirs=$(ls scripts/regression| jq -R -s -c 'split("\n")[:-1]')"
+        echo "dirs=$(ls scripts/regression| jq -R -s -c 'split("\n")[:-1]')" >> ${GITHUB_OUTPUT}
+        # ls scripts/regression | jq -R -s -c 'split("\n")[:-1]'
+
+  regression-by-model:
+    runs-on: [self-hosted, cs, ligeng-zhu]
+    needs: collect_regression_models
+    timeout-minutes: 3600 #  60 hours max queue time in case of high load
+    strategy:
+      matrix:
+        model: ${{ fromJson(needs.collect_regression_models.outputs.dirs) }}
+    steps:
+    - name: Check out Git repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.PAT }}
+        ref: ${{ github.event.pull_request.head.ref }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Set up the environment
+      run: |
+        ./environment_setup.sh
+
+    - name: Run regression tests with Slurm
+      run: |
+        export HF_TOKEN=${{ secrets.HF_TOKEN }}
+        export WANDB_API_KEY=${{ secrets.WANDB_API_KEY }}
+        export TIME=$(date +%Y%m-week%W) # e.g., 202409-week36
+        export FULLTIME=$(date +%Y%m%d%H%M%S)
+        export COMMIT_HASH=$(git rev-parse --short=12 HEAD)
+
+        #TODO(ligeng): remove in final version
+        # export COMMIT_HASH=dev
+
+        echo "TIME=$TIME" >> $GITHUB_ENV
+        echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
+
+        bash tests/regression/run.sh ${{ matrix.model }}
+
+    - name: Reading metrics into Env Var
+      id: getmetric
+      run: |
+        TIME=${{ env.TIME }}
+        COMMIT_HASH=${{ env.COMMIT_HASH }}
+        FULLTIME=${{ env.FULLTIME }}
+
+        ROOTDIR=$HOME/workspace/checkpoints-regression
+        BASEDIR=$ROOTDIR/$TIME-$COMMIT_HASH
+
+        # HF_MODEL=${{ matrix.model }} # lmsys/vicuna-7b-v1.5
+        # MODEL=$(echo $HF_MODEL | rev | cut -d "/" -f 1 | rev)
+        MODEL=${{ matrix.model }} # vicuna-7b-v1.5
+
+        echo "uuid=$TIME-$COMMIT_HASH" >> $GITHUB_ENV
+        echo "model=$MODEL" >> $GITHUB_ENV
+
+        json_content=$(cat $BASEDIR/$MODEL-sft-eval/metrics.json)
+        echo $json_content
+        echo "json_content<<EOF" >> $GITHUB_ENV
+        echo "$json_content" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+        wandb_url=$(cat $BASEDIR/$MODEL-sft-eval/wandb.txt)
+        echo $wandb_url
+        echo "wandb_url<<EOF" >> $GITHUB_ENV
+        echo "$wandb_url" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+    - name: Report performance on Github PR
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `👋 Regression-test finished. The evaluation results for \`${{ env.model }}\` on ${{ env.fulltime }} are:
+            \`\`\`json
+            ${{ env.json_content }}
+            \`\`\`
+            wandb url is : ${{ env.wandb_url }}
+
+            snapshots of checkpoints and logs are under https://huggingface.co/Efficient-Large-Model/checkpoints-regression/tree/main/${{ env.uuid }}
+            `
+          })
+
+    - name: Remove checkpoints
+      run: |
+        rm -f core.*
+        ROOTDIR=$HOME/workspace/checkpoints-regression
+        BASEDIR=$ROOTDIR/${{ env.TIME }}-${{ env.COMMIT_HASH }}
+        rm -rfv $BASEDIR/$MODEL-align
+        rm -rfv $BASEDIR/$MODEL-pretrain
+        rm -rfv $BASEDIR/$MODEL-sft
+        rm -rfv $BASEDIR/$MODEL-sft-eval
+
+  # post regression test, remove the label to avoid repeated running.
+  remove-label:
+    runs-on: ubuntu-latest
+    needs: regression-by-model
+    steps:
+    - name: Remove label(s) after lint
+      uses: actions-ecosystem/action-remove-labels@v1
+      with:
+        labels: regression-test wanted

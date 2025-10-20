@@ -1,0 +1,59 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Test pre-commit hooks
+        uses: pre-commit/action@v3.0.0
+
+  tests-bash:
+    needs: pre-commit
+    runs-on: self-hosted
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Set up the environment
+        run: |
+          ./environment_setup.sh
+      - name: Run tests with Slurm
+        run: |
+          vila-run --pty -m ci -J tests-bash bash tests/bash/entry.sh
+
+
+  tests-python:
+    needs: pre-commit
+    runs-on: self-hosted
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Set up the environment
+        run: |
+          ./environment_setup.sh
+      - name: Run tests with Slurm
+        run: |
+          vila-run --pty -m ci -J tests-python pytest tests/python
