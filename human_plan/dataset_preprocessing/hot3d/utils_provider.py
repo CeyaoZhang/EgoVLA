@@ -12,7 +12,7 @@
 # - To use the Mano hand you need to have the LEFT/RIGHT *.pkl hand models (available)
 import human_plan
 import os
-from dataset_api import Hot3dDataProvider
+from Hot3dDataProvider import Hot3dDataProvider
 from data_loaders.loader_object_library import load_object_library
 from data_loaders.mano_layer import MANOHandModel
 

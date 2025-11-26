@@ -1,7 +1,7 @@
 
 # change the original dataset file format into .arrow file -> InstructPix2Pix + MagicBrush
 import pandas as pd
-from datasets import Dataset, concatenate_datasets, load_from_disk
+# from datasets import Dataset, concatenate_datasets, load_from_disk
 import glob
 import os
 import datasets
@@ -19,7 +19,7 @@ num_data_samples = len(loaded_dataset)
 
 print(loaded_dataset)
 
-import torch
+# import torch
 
 from PIL import Image
 from io import BytesIO

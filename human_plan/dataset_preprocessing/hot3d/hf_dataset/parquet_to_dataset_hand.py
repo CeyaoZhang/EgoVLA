@@ -31,12 +31,12 @@ if __name__ == "__main__":
   # same for MagicBrush
   parquet_file_paths = glob.glob(parquet_pattern)
   parquet_datasets = list(parquet_to_dataset_generator(parquet_file_paths))
-  merged_dataset = concatenate_datasets(parquet_datasets)
+  merged_dataset = concatenate_datasets(parquet_datasets)# 合并所有 Dataset 
   print(merged_dataset)
 
   # load
   # MagicBruth_HF_path = 'Seedx_Multiturn_HF'
-  merged_dataset.save_to_disk(dataset_file_root)
+  merged_dataset.save_to_disk(dataset_file_root) # 保存为 HuggingFace Dataset 格式（.arrow 文件）
 
   loaded_dataset = load_from_disk(dataset_file_root)
   print(merged_dataset)

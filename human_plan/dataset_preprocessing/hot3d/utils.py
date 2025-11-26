@@ -1,12 +1,14 @@
-import os
-import human_plan
-import os
-from dataset_api import Hot3dDataProvider
-from data_loaders.loader_object_library import load_object_library
-from data_loaders.mano_layer import MANOHandModel
 from tqdm import tqdm
+import os
 import cv2
 import numpy as np
+
+
+import human_plan
+from Hot3dDataProvider import Hot3dDataProvider
+from data_loaders.loader_object_library import load_object_library
+from data_loaders.mano_layer import MANOHandModel
+
 from projectaria_tools.core.stream_id import StreamId  # @manual
 
 from projectaria_tools.core.sensor_data import TimeDomain, TimeQueryOptions
@@ -27,7 +29,7 @@ from human_plan.dataset_preprocessing.utils.transformations import (
 
 def get_all_seqs(dataset_root):
   all_seq_names = os.listdir(dataset_root)
-  all_seq_names = [seq for seq in all_seq_names if seq != "assets"]
+  all_seq_names = [seq for seq in all_seq_names if seq != "assets" and seq.startswith("P")]
   return all_seq_names
 
 
@@ -77,7 +79,7 @@ def get_hot3d_data_provider(dataset_root, seq_name):
   if mano_hand_model_path is not None:
       mano_hand_model = MANOHandModel(mano_hand_model_path)
 
-  # Initialize hot3d data provider
+  # Initialize hot3d data provider， 核心！！！
   hot3d_data_provider = Hot3dDataProvider(
       sequence_folder=sequence_path,
       object_library=object_library,

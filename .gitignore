@@ -169,3 +169,7 @@ pre_processing
 checkpoints
 
 .vscode
+
+mano_v1_2
+
+data

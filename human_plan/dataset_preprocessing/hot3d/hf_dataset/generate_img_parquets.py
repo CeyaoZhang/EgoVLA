@@ -1,14 +1,14 @@
-from PIL import Image
-import io
-import os
-import pandas as pd
-import json
-import glob
-import copy
+# from PIL import Image
+# import io
+# import os
+# import pandas as pd
+# import json
+# import glob
+# import copy
 import tqdm
-import cv2
-from datasets import Dataset, concatenate_datasets, load_from_disk
-import natsort
+# import cv2
+# from datasets import Dataset, concatenate_datasets, load_from_disk
+# import natsort
 
 from pathlib import Path
 
@@ -60,9 +60,8 @@ def hot3d_write_parquet(
     desc=f"{chunk_id} out of {num_chunks}"
   ):
     try:
-      data_provider = get_hot3d_data_provider(
-        dataset_root, seq_name
-      )
+      data_provider = get_hot3d_data_provider(dataset_root, seq_name) # 获取数据提供者
+
       if is_aria:
         seq_data = parse_single_seq_image_aria(
           data_provider,
@@ -139,6 +138,8 @@ if __name__ == "__main__":
   all_quest_seqs = get_quest_seqs(dataset_root)
   print(len(all_quest_seqs))
   all_quest_seqs = get_chunk(all_quest_seqs, args.num_chunks, args.chunk_id)
+
+  # exit()
 
   hot3d_write_parquet(
     all_aria_seqs=all_aria_seqs,
