@@ -27,6 +27,9 @@ cd VILA
 
 ```bash
 bash ./build_env.sh
+
+conda env config vars set PYTHONPATH="/home/zhangceyao/Projects/charles/EgoVLA:$PYTHONPATH"
+# echo $PYTHONPATH
 ```
 
 Register at the MANO website and download the models.
@@ -39,7 +42,7 @@ git clone https://github.com/hassony2/manopth # This is for hand pose preprocess
 git clone https://github.com/facebookresearch/hot3d # This is for Hot3d data preprocessing
 
 export PYTHONPATH=$PYTHONPATH:/path/to/your/manopth
-echo 'export PYTHONPATH=$PYTHONPATH:/home/admin01/Projects/manopth' >> ~/.bashrc
+echo 'export PYTHONPATH=$PYTHONPATH:/home/zhangceyao/Projects/manopth' >> ~/.bashrc
 export PYTHONPATH=$PYTHONPATH:/path/to/your/hot3d
 ```
 
@@ -92,10 +95,18 @@ And follow instruction to setup the virtrual environment to process the HOT3D da
 # Preprocess RAW -> HF:
 
 conda activate hot3d
-conda env config vars set PYTHONPATH=/home/admin01/Projects/hot3d/hot3d:$PYTHONPATH
+conda env config vars set PYTHONPATH=/home/zhangceyao/Projects/charles/hot3d/hot3d:$PYTHONPATH
 # conda env config vars list 
+# echo $PYTHONPATH
+# python -c "from Hot3dDataProvider import Hot3dDataProvider; print('✓ Hot3dDataProvider 导入成功')"
+# python -c "from data_loaders.loader_object_library import load_object_library; print('✓ data_loaders 导入成功')"
+# python -c "import human_plan; print('✓ human_plan 导入成功')"
 pip install opencv-python==4.8.0.74
-pip install datasets, pandas
+pip install datasets pandas
+
+# 下载好了之后，建立一个软连接
+
+ln -s /share_data/ceyao/data/hot3d/dataset data/hot3d
 
 bash human_plan/dataset_preprocessing/hot3d/hf_dataset/generate_dataset_image.sh
 sh human_plan/dataset_preprocessing/hot3d/hf_dataset/generate_dataset_hands_job_set1.sh
@@ -142,7 +153,8 @@ sh human_plan/dataset_preprocessing/holoassist/hf_dataset/generate_dataset_hand_
 Download from [HuggingFace](https://huggingface.co/datasets/quincyu/EgoVLA-Humanoid-Sim/tree/main)
 
 ```bash
-huggingface-cli download EgoVLA/EgoVLA-Humanoid-Sim --repo-type dataset --local-dir data/EgoVLA_SIM
+# export HF_ENDPOINT=https://huggingface.co
+# huggingface-cli download EgoVLA/EgoVLA-Humanoid-Sim --repo-type dataset --local-dir data/EgoVLA_SIM
 hf download EgoVLA/EgoVLA-Humanoid-Sim --repo-type dataset --local-dir data/EgoVLA_SIM
 ```
 
