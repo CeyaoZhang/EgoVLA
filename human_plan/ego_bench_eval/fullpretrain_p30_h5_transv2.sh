@@ -10,9 +10,9 @@ PROJ_TRAJS=$9
 HAND_SMOOTH_WEIGHT=${10}
 video_saving_path=${11}
 additional_label=${12}
-use_per_step_instruction=${13}
+# use_per_step_instruction=${13}
 
-source /home/rchal97/code/clean_egovla/isaacsim/setup_conda_env.sh
+# source /home/rchal97/code/clean_egovla/isaacsim/setup_conda_env.sh
 
 LOG_ROOT=logs
 
@@ -23,7 +23,7 @@ bs=16
 n_node=1
 
 exp_id=ego_vla_checkpoint
-checkpoint_xxx=$(find checkpoints/$exp_id -type d -name "ckpt-*" -print -quit)
+checkpoint_xxx=$(find checkpoints/egovla/$exp_id -type d -name "ckpt-*" -print -quit)
 echo $checkpoint_xxx
 
 # deepspeed human_plan/train/train_vla_finetune_llava.py \
