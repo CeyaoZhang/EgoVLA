@@ -207,6 +207,7 @@ def get_all_seqs(
     [p for p in os.listdir(dataset_root) if not os.path.isfile(os.path.join(dataset_root, p))]
   )
   print(task_list)
+  
   seq_list = []
   for task in task_list:
     hdf5_files =sorted(

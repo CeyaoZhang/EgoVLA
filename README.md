@@ -42,7 +42,7 @@ git clone https://github.com/hassony2/manopth # This is for hand pose preprocess
 git clone https://github.com/facebookresearch/hot3d # This is for Hot3d data preprocessing
 
 export PYTHONPATH=$PYTHONPATH:/path/to/your/manopth
-echo 'export PYTHONPATH=$PYTHONPATH:/home/zhangceyao/Projects/manopth' >> ~/.bashrc
+echo 'export PYTHONPATH=$PYTHONPATH:/home/zhangceyao/Projects/charles/manopth' >> ~/.bashrc
 export PYTHONPATH=$PYTHONPATH:/path/to/your/hot3d
 ```
 
@@ -175,18 +175,21 @@ bash human_plan/dataset_preprocessing/otv_isaaclab/hf_dataset_fixed_set/generate
 * [EgoVLA](https://huggingface.co/rchal97/egovla)
 
 ```
-huggingface-cli download rchal97/egovla_base_vlm --repo-type model --local-dir checkpoints
+hf download rchal97/egovla_base_vlm --repo-type model --local-dir checkpoints/egovla_base_vlm
 
-huggingface-cli download rchal97/ego_vla_human_video_pretrained --repo-type model --local-dir checkpoints
+hf download rchal97/ego_vla_human_video_pretrained --repo-type model --local-dir checkpoints/ego_vla_human_video_pretrained
 
-huggingface-cli download rchal97/egovla --repo-type model --local-dir checkpoints
+# echo $HF_ENDPOINT
+# unset HF_ENDPOINT
+hf download rchal97/egovla --repo-type model --local-dir checkpoints/egovla
 ```
 
 #### Human Video Pretraining
 
 
 ```bash
-bash training_scripts/robot_finetuning/hoi4dhot3dholotaco_p30_h5_transv2.sh
+# bash training_scripts/robot_finetuning/hoi4dhot3dholotaco_p30_h5_transv2.sh
+bash training_scripts/human_video_pretraining/trans_v2_f1p30_split.sh
 ```
 
 #### Robot Data Fine-tuning
