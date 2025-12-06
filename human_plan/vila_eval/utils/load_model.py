@@ -28,6 +28,7 @@ from llava.constants import (
 )
 
 def load_model_eval(model_args, data_args, training_args):
+
   training_args.run_name = training_args.output_dir.split("/")[-1]
 
   data_args.is_multimodal = True
@@ -36,6 +37,7 @@ def load_model_eval(model_args, data_args, training_args):
   model_base = "checkpoints/ego_vla_checkpoint"
 
   model_name = get_model_name_from_path(checkpoint_path)
+
 
   tokenizer, model, image_processor, context_len = load_pretrained_model(
       checkpoint_path, model_name, model_base,

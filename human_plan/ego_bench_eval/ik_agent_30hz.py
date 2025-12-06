@@ -1,32 +1,14 @@
-
 import os
-import cv2
 import tqdm
-from collections import deque
-import gymnasium as gym
-import torch
 
+# ===== 第一部分：不依赖 Isaac 的导入 =====
 from transformers import HfArgumentParser
-
-from human_plan.vila_train.args import VLATrainingArguments, VLAModelArguments, VLADataArguments
-from human_plan.vila_eval.utils.load_model import load_model_eval
-from human_plan.ego_bench_eval.utils import (
-    process_input,
-    ik_step,
-    ik_eval_single_step,
-    get_language_instruction
+from human_plan.vila_train.args import (
+  VLATrainingArguments, VLAModelArguments, VLADataArguments
 )
 
-
+from collections import deque
 from omni.isaac.lab.app import AppLauncher
-from omni.isaac.lab_tasks.utils import parse_env_cfg
-from omni.isaac.lab.controllers import DifferentialIKController, DifferentialIKControllerCfg
-# from omni.isaac.lab.managers import SceneEntityCfg
-# from omni.isaac.lab.markers import VisualizationMarkers
-# from omni.isaac.lab.markers.config import FRAME_MARKER_CFG
-# from omni.isaac.lab.utils.math import subtract_frame_transforms
-from humanoid.tasks.base_env import BaseEnv, BaseEnvCfg
-
 
 # We fix the seed for tasks to make sure the object position during evaluation
 # are never seen during training.
@@ -45,7 +27,7 @@ seed_map = {
     "Humanoid-Stack-Can-Into-Drawer-v0": 11,
 }
 
-# 创建基础 parser，包含 VLA 相关的参数
+# ===== 第二部分：设置 parser 和启动 AppLauncher =====
 parser = HfArgumentParser((VLAModelArguments, VLADataArguments, VLATrainingArguments))
 # add argparse arguments
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
@@ -61,12 +43,36 @@ parser.add_argument("--save_frames", type=int, default=0, help="result saving pa
 parser.add_argument("--project_trajs", type=int, default=0, help="result saving path")
 parser.add_argument("--additional_label", type=str, default=None, help="additional_label")
 
-# append AppLauncher cli args, 这个方法会向 parser 添加 Isaac Sim 特定的命令行参数
+# append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 
 # launch omniverse app
 app_launcher = AppLauncher(enable_cameras=True, device="cuda", headless=True)
 simulation_app = app_launcher.app
+
+
+# ===== 第三部分：AppLauncher 启动后才导入依赖 Isaac 的模块 =====
+from human_plan.ego_bench_eval.utils import (
+    process_input,
+    ik_step,
+    ik_eval_single_step,
+    get_language_instruction
+)
+import gymnasium as gym
+import torch
+
+from omni.isaac.lab_tasks.utils import parse_env_cfg
+import torch
+
+from omni.isaac.lab.controllers import DifferentialIKController, DifferentialIKControllerCfg
+# from omni.isaac.lab.managers import SceneEntityCfg
+# from omni.isaac.lab.markers import VisualizationMarkers
+# from omni.isaac.lab.markers.config import FRAME_MARKER_CFG
+# from omni.isaac.lab.utils.math import subtract_frame_transforms
+from humanoid.tasks.base_env import BaseEnv, BaseEnvCfg
+
+import cv2
+from human_plan.vila_eval.utils.load_model import load_model_eval
 
 def main():
 
@@ -229,6 +235,7 @@ def main():
           left_ee_pose_traj_gt = init_poses[load_name][seq_name][padding]["left_ee"]
           right_ee_pose_traj_gt = init_poses[load_name][seq_name][padding]["right_ee"]
 
+          # 调用 ik_step() 将机器人移动到初始位置 
           ik_step(
             env,
             left_ik_controller,
@@ -254,13 +261,16 @@ def main():
       from human_plan.ego_bench_eval.utils import TASK_MAX_HORIZON
       max_horizon = TASK_MAX_HORIZON[task_args.task]
 
+      # 主控制循环
       for i in tqdm.tqdm(range(max_horizon)):
         # run everything in inference mode
         # obtain quantities from simulation
+        # 感知：获取当前观测   
         rgb_obs = env_results[0]["fixed_rgb"][0].cpu().numpy()[:, :, :]
 
         from human_plan.ego_bench_eval.utils import process_proprio_input
 
+        # 处理state中的关节位置和末端执行器位置
         proprio_input, raw_proprio_inputs = process_proprio_input(
           env_results[0]["left_finger_tip_pos"].cpu().numpy(),
           env_results[0]["right_finger_tip_pos"].cpu().numpy(),
@@ -274,10 +284,12 @@ def main():
         rgb_obs = cv2.resize(rgb_obs, (384, 384))
         rgb_obs_hist.append(rgb_obs)
 
+        # 获得task instruction
         raw_language_instruction = get_language_instruction(
             task_args.task
         )
 
+        # 处理输入，tokenizer
         raw_data_dict = process_input(
             rgb_obs_hist, 
             proprio_input.to("cuda"),
@@ -285,6 +297,7 @@ def main():
             data_args, model_args, tokenizer
         )
 
+        # 推理：VLA 模型预测动作            
         raw_data_dict.update(raw_proprio_inputs)
         with torch.inference_mode():
           action_dict = ik_eval_single_step(
@@ -292,6 +305,7 @@ def main():
               model, tokenizer,
           )
 
+        # 动作平滑：将预测的动作平滑化，以便更平滑地执行动作
         from human_plan.ego_bench_eval.utils import smooth_action, repeat_action
         action_hist_right_ee.append(
           repeat_action(action_dict["right_ee_pose"], data_args.future_index)
@@ -322,6 +336,7 @@ def main():
           hist_len, task_args.hand_smooth_weight, action_hist_right_hand
         )
 
+        # IK 求解：将末端执行器目标转换为关节命令     
         ik_step(
             env,
             left_ik_controller,

@@ -157,14 +157,14 @@ def preprocess_multimodal_vla(
 
 def preprocess_vla(
     language_label,
-    raw_input,
-    raw_label,
-    label_mask,
+    raw_input, # proprio 输入 (42维)
+    raw_label, # 动作标签 (46维)
+    label_mask, # 动作标签掩码 (46维)
     action_tokenizer: ActionTokenizer,
     tokenizer: transformers.PreTrainedTokenizer,
-    mask_input=False,
+    mask_input=False, # True
     mask_ignore=False,
-    raw_action_label=False,
+    raw_action_label=False, # True
     traj_action_output_dim=1,
     input_placeholder_diff_index=False,
     sep_query_token=False,
@@ -174,6 +174,7 @@ def preprocess_vla(
     raw_language_label=None
 ) -> Dict:
 
+  # 步骤 1: 构建对话格式
   conv = conversation_lib.default_conversation.copy()
   conv.messages = []
   conv.append_message(conv.roles[0], language_label)
@@ -194,6 +195,7 @@ def preprocess_vla(
       (np.ones_like(label_mask_for_tokenizer) * 0.5).reshape(-1),
       label_mask_for_tokenizer.reshape(-1)
     )
+
   else:
     label_mask_for_tokenizer = label_mask
     action_text = action_tokenizer(
@@ -211,6 +213,7 @@ def preprocess_vla(
 
   assert conv.sep_style == conversation_lib.SeparatorStyle.TWO
 
+  # 步骤 2: Tokenization
   input_ids = tokenizer_image_token(
     conv.get_prompt(), tokenizer, return_tensors='pt'
   ).reshape(-1)
@@ -222,6 +225,7 @@ def preprocess_vla(
   # Do not predict stop sign
   targets[-1] = IGNORE_INDEX
 
+  # 步骤 3: 使用 Placeholder Token (推理时)
   if mask_input:
     if input_placeholder_diff_index:
       placeholder_index = action_tokenizer.input_placeholder_token_idx - \

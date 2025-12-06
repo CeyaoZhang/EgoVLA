@@ -1,30 +1,23 @@
 import torch
 from omni.isaac.lab.utils.math import subtract_frame_transforms
-from human_plan.utils.mano.forward import (
-   mano_forward_retarget
-)
-from llava.data.utils import (
-  norm_hand_dof,
-  denorm_hand_dof
-)
 
-from human_plan.preprocessing.preprocessing import (
-  preprocess_vla,
-  preprocess_multimodal_vla
-)
+from llava.data.utils import norm_hand_dof, denorm_hand_dof
+from llava.mm_utils import process_image_ndarray_v2
 
-from human_plan.preprocessing.prompting_format import (
-  preprocess_language_instruction,
-)
-
-from llava.mm_utils import (
-  process_image_ndarray_v2
-)
+from human_plan.utils.mano.forward import mano_forward_retarget
+from human_plan.utils.visualization import project_points
+from human_plan.preprocessing.preprocessing import preprocess_vla, preprocess_multimodal_vla
+from human_plan.preprocessing.prompting_format import preprocess_language_instruction
+from human_plan.dataset_preprocessing.otv_isaaclab.utils import LANGUAGE_MAPPING, LANGUAGE_MAPPING_NEW
+from human_plan.dataset_preprocessing.utils.mano_utils import obtain_mano_pose_otv_inspire_single_step
 
 from human_plan.dataset_preprocessing.otv_isaaclab.utils import (
-  LANGUAGE_MAPPING,
-  LANGUAGE_MAPPING_NEW
+  to_cam_frame,
+  to_pose,
+  pose_to_cam_frame,
+  robot_action_to_mano_action
 )
+
 
 TASK_MAX_HORIZON = {
   "Humanoid-Push-Box-v0": 400,
@@ -197,20 +190,6 @@ def get_language_instruction(task):
   task_name = task[9:-3]
   return LANGUAGE_MAPPING[task_name]
 
-from human_plan.dataset_preprocessing.utils.mano_utils import (
-  obtain_mano_pose_otv_inspire_single_step
-)
-
-from human_plan.utils.visualization import (
-   project_points,
-)
-
-from human_plan.dataset_preprocessing.otv_isaaclab.utils import (
-  to_cam_frame,
-  to_pose,
-  pose_to_cam_frame,
-  robot_action_to_mano_action
-)
 
 def process_proprio_input(
     left_finger_tip,
@@ -315,7 +294,7 @@ def process_proprio_input(
           ee_3d_inputs.reshape(-1, 6),
           ee_rot_inputs.reshape(-1, 6),
           hand_dof_inputs.reshape(-1, 30)
-    ], dim=-1)
+    ], dim=-1) # 42维
   else:
     proprio_input = torch.cat([
           ee_2d_inputs.reshape(-1, 4),
@@ -363,7 +342,7 @@ def ik_step(
   left_ee_curr_pose_robot, left_ee_curr_quat_robot = subtract_frame_transforms(
       robot_pose_w[:, 0:3], robot_pose_w[:, 3:7], left_ee_curr_pose_world[:, 0:3], left_ee_curr_pose_world[:, 3:7]
   )
-  right_ee_curr_pos_robot, right_ee_curr_quat_robot = subtract_frame_transforms(
+  right_ee_curr_pose_robot, right_ee_curr_quat_robot = subtract_frame_transforms(
       robot_pose_w[:, 0:3], robot_pose_w[:, 3:7], right_ee_curr_pose_world[:, 0:3], right_ee_curr_pose_world[:, 3:7]
   )
   left_ik_commands_world[:, 0:7] = torch.FloatTensor(left_ee_goal[0:7]).to(left_ik_commands_world.device)
@@ -375,10 +354,11 @@ def ik_step(
       robot_pose_w[:, 0:3], robot_pose_w[:, 3:7], right_ik_commands_world[:, 0:3], right_ik_commands_world[:, 3:7]
   )
   left_ik_controller.set_command(left_ik_commands_robot, left_ee_curr_pose_robot, left_ee_curr_quat_robot)
-  right_ik_controller.set_command(right_ik_commands_robot, right_ee_curr_pos_robot, right_ee_curr_quat_robot)
+  right_ik_controller.set_command(right_ik_commands_robot, right_ee_curr_pose_robot, right_ee_curr_quat_robot)
+  
   # compute the joint commands
   left_joint_pos_des = left_ik_controller.compute(left_ee_curr_pose_robot, left_ee_curr_quat_robot, left_arm_jacobian, left_joint_pos)
-  right_joint_pos_des = right_ik_controller.compute(right_ee_curr_pos_robot, right_ee_curr_quat_robot, right_arm_jacobian, right_joint_pos)
+  right_joint_pos_des = right_ik_controller.compute(right_ee_curr_pose_robot, right_ee_curr_quat_robot, right_arm_jacobian, right_joint_pos)
 
   action[:, :] = 0
   action[:, env.cfg.left_arm_cfg.joint_ids] = left_joint_pos_des
@@ -506,6 +486,8 @@ def process_input(
   valid_hist_len = len(rgb_obs_hist)
   rgb_obs = []
   rgb_obs_his = []
+
+  # 添加历史帧图像，his=5
   for idx in range(data_args.add_his_obs_step):
     rgb_image_idx = max(
       0,
@@ -522,8 +504,9 @@ def process_input(
     rgb_obs_his.append(
       rgb_obs_hist[rgb_image_idx]
     )
-  valid_his_len = data_args.add_his_obs_step
+  
 
+  # 添加当前帧图像
   rgb_obs.append(process_image_ndarray_v2(
       rgb_obs_hist[-1],
       data_args,
@@ -534,6 +517,8 @@ def process_input(
   )
   image = torch.stack(rgb_obs, dim=0)
 
+  # 添加语言指令
+  valid_his_len = data_args.add_his_obs_step # his=5
   language_instruction = preprocess_language_instruction(
     raw_language_instruction, valid_his_len, data_args
   )
@@ -663,9 +648,9 @@ def ik_eval_single_step(
 
   # N, 2, 2
   # pred_2d = pred[:, :4]
-  # N, 2, 3
+  # N, 2, 3 # 左右手末端执行器 3D 位置预测 (6维: 2×3)
   pred_3d = pred[:, :6].reshape(-1, 2, 3)
-  # N, 2, 15
+  # N, 2, 15 # 左右手 MANO 手指关节角度预测 (30维: 2×15)
   pred_hand = pred[:, 6:36].reshape(-1, 2, 15)
 
   # Use Rot 6d

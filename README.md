@@ -28,7 +28,7 @@ cd VILA
 ```bash
 bash ./build_env.sh
 
-conda env config vars set PYTHONPATH="/home/zhangceyao/Projects/charles/EgoVLA:$PYTHONPATH"
+conda env config vars set PYTHONPATH="$HOME/Projects/EgoVLA:$PYTHONPATH"
 # echo $PYTHONPATH
 ```
 
@@ -52,7 +52,10 @@ Overall instruction for setup IsaacLab: https://isaac-sim.github.io/IsaacLab/mai
 
 * Follow the instruction to install IsaacSim (4.2.0.2)
   ```
-  pip install isaacsim==4.2.0.2 --extra-index-url https://pypi.nvidia.com
+  # pip install isaacsim==4.2.0.2 --extra-index-url https://pypi.nvidia.com
+  pip install isaacsim==4.2.0.2 isaacsim-extscache-physics==4.2.0.2 isaacsim-extscache-kit==4.2.0.2 isaacsim-extscache-kit-sdk==4.2.0.2 --extra-index-url https://pypi.nvidia.com
+
+  pip install warp-lang
   ```
 * Clone [Ego Humanoid Manipulation Benchmark](https://github.com/quincy-u/Ego_Humanoid_Manipulation_Benchmark), then install it with the command in the instruction
 

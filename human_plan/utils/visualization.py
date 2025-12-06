@@ -4,17 +4,35 @@ import numpy as np
 def project_points(
   points, img_intrinsics
 ):
-  points = points.reshape(-1, 3)
   # Put an empty camera pose for image.
-  rvec = np.array([[0.0, 0.0, 0.0]])
+  rvec = np.array([0.0, 0.0, 0.0])
   tvec = np.array([0.0, 0.0, 0.0])
-  # print(points.shape, points.dtype)
   points = points.astype(np.float32)
-  points, _ = cv2.projectPoints(
+
+  points_2d, _ = cv2.projectPoints(
     points, rvec, tvec, img_intrinsics, np.array([])
   )
-
-  return np.array(points).reshape(-1, 2)
+  points_2d = np.array(points_2d).reshape(-1, 2)
+  
+  return points_2d
+    # 尝试直接调用并捕获更详细的错误
+  # try:
+  #   projected_points, _ = cv2.projectPoints(
+  #     points, rvec, tvec, img_intrinsics, None  # 改用 None 而不是 np.array([])
+  #   )
+  #   return projected_points.reshape(-1, 2)
+  # except Exception as e:
+  #   print(f"错误详情: {e}")
+  #   print(f"尝试检查 cv2 版本: {cv2.__version__}")
+  #   # 尝试备用方法：手动投影
+  #   print("尝试手动投影...")
+  #   # 手动实现投影
+  #   fx, fy = img_intrinsics[0, 0], img_intrinsics[1, 1]
+  #   cx, cy = img_intrinsics[0, 2], img_intrinsics[1, 2]
+  #   projected = np.zeros((points.shape[0], 2))
+  #   projected[:, 0] = (points[:, 0] / points[:, 2]) * fx + cx
+  #   projected[:, 1] = (points[:, 1] / points[:, 2]) * fy + cy
+  #   return projected
 
 
 def plot_points(points, img, color):
@@ -34,13 +52,20 @@ def plot_hand(points, img, color, get_handpose_connectivity_func):
   points = points.reshape(-1, 2)
 
   connectivity = get_handpose_connectivity_func()
-  thickness = 4
+  line_thickness = 3
+  circle_radius = 5
 
   if not (np.isnan(points).any()):
+    # 画线条连接
     for limb in connectivity:
-      cv2.line(
-        img, (int(points[limb[0]][0]), int(points[limb[0]][1])),
-               (int(points[limb[1]][0]), int(points[limb[1]][1])), color, thickness)
+      pt1 = (int(points[limb[0]][0]), int(points[limb[0]][1]))
+      pt2 = (int(points[limb[1]][0]), int(points[limb[1]][1]))
+      cv2.line(img, pt1, pt2, color, line_thickness)
+    
+    # 画关键点（圆圈）
+    for point in points:
+      pt = (int(point[0]), int(point[1]))
+      cv2.circle(img, pt, circle_radius, color, -1)  # 实心圆
 
   return img
 

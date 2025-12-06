@@ -677,7 +677,11 @@ def visualize_single_seq_otv(
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     seq_length = single_seq_data["images"]["main"].shape[0]
-    for idx in tqdm(range(0, seq_length, 20)):
+    for idx in tqdm(range(0, seq_length, 2)):
+       # TO CV2 convention
+      #  print()
+      # rgb_obs = single_seq_data["images"]["main"][idx][..., :640, ::-1]
+      rgb_obs = single_seq_data["images"]["main"][idx][..., ::-1]
        # TO CV2 convention
       #  print()
       # rgb_obs = single_seq_data["images"]["main"][idx][..., :640, ::-1]
@@ -743,18 +747,18 @@ def visualize_single_seq_otv(
       )
 
 if __name__ == "__main__":
-  dataset_root = "/mnt/data3/data/OTV_AUG_v2/"
+  dataset_root = "/home/admin01/Projects/EgoVLA/data/EgoVLA_SIM"
   # seq_name = "Pick-Place-Safe-Drawer/episode_0.hdf5"
-  seq_name = "Insert-And-Unload-Cans/episode_0.hdf5"
+  seq_name = "Close-Drawer/episode_10.hdf5"
   seq_data =load_episode_data(
     dataset_root,
-    "Insert-And-Unload-Cans",
-    "episode_0.hdf5",
+    "Close-Drawer",
+    "episode_10.hdf5",
     clip_starting=0,
-    filter_by_success=True
+    filter_by_success=False
   )
 
-  save_root = "playground/dataset_vis/OTV/sim_fix_retarget"
+  save_root = "/home/admin01/Projects/EgoVLA/data/EgoVLA_SIM_vis"
 
   visualize_single_seq_otv(
     seq_data,

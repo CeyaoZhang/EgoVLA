@@ -87,8 +87,9 @@ class UniformActionTokenizer(ActionTokenizer):
 
   def __call__(self, action: np.ndarray, mask: np.ndarray) -> Union[str, List[str]]:
     """Clip & bin actions to *the last `n_bins` tokens* of the vocabulary (e.g., tokenizer.vocab[-256:])."""
-    action = np.clip(action, a_min=float(self.min_action),
-                     a_max=float(self.max_action))
+    action = np.clip(action, a_min=float(self.min_action), a_max=float(self.max_action)) # 动作值裁剪
+
+    # 给动作值分配离散化后的 token id
     discretized_action = np.digitize(action, self.bins)
     # Handle single element vs. batch
     discretized_action = self.tokenizer.vocab_size - discretized_action - 1

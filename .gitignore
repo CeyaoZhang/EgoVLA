@@ -162,7 +162,7 @@ cython_debug/
 wandb
 playground
 scripts
-core.*
+# core.*
 
 pre_processing
 
@@ -173,3 +173,6 @@ checkpoints
 mano_v1_2
 
 data
+
+video_output
+*.txt
